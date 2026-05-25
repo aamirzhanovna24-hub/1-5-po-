@@ -1,0 +1,441 @@
+drop user if exists db_reader_user;
+drop role if exists fitness_center_readonly;
+
+drop user if exists db_admin_user;
+drop role if exists fitness_center_admin;
+
+drop schema if exists fitness_center cascade;
+
+create schema fitness_center;
+
+set search_path to fitness_center;
+
+create table MembershipTypes (
+    membershipType_id serial primary key,
+    name varchar(50) not null unique,
+    duration_month int not null
+        check (duration_month > 0),
+    price numeric(10,2) not null
+        check (price >= 0),
+    access_level varchar(50) default 'Standard'
+);
+
+create table Members (
+    member_id serial primary key,
+
+    first_name varchar(50) not null,
+    last_name varchar(50) not null,
+
+    date_of_birth date not null
+        check (date_of_birth < date '2020-01-01'),
+
+    gender char(1) default 'O'
+        check (gender in ('M','F','O')),
+
+    phone varchar(20) unique,
+
+    registration_date date default current_date
+        check (registration_date > date '2020-01-01'),
+
+    membership_id int not null,
+
+    status char(1) not null
+        check (status in ('A','I')),
+
+    foreign key (membership_id)
+        references MembershipTypes(membershipType_id)
+);
+
+create table Invoice (
+    invoice_id serial primary key,
+
+    member_id int not null,
+
+    invoice_date date default current_date
+        check (invoice_date > date '2020-01-01'),
+
+    total_amount numeric(10,2) not null
+        check (total_amount >= 0),
+
+    total_with_tax numeric(10,2)
+        generated always as (total_amount * 1.12) stored,
+
+    status char(1) default 'U'
+        check (status in ('P','U')),
+
+    foreign key (member_id)
+        references Members(member_id)
+);
+
+create table Payments (
+    payment_id serial primary key,
+
+    invoice_id int not null,
+
+    payment_date date default current_date
+        check (payment_date > date '2020-01-01'),
+
+    amount numeric(10,2) not null
+        check (amount >= 0),
+
+    payment_method char(1) not null
+        check (payment_method in ('C','K','T')),
+
+    amount_with_fee numeric(10,2)
+        generated always as (amount * 1.02) stored,
+
+    foreign key (invoice_id)
+        references Invoice(invoice_id)
+);
+
+create table Facilities (
+    facility_id serial primary key,
+
+    facility_name varchar(100) not null,
+
+    capacity int not null
+        check (capacity > 0),
+
+    location varchar(100)
+);
+
+create table Equipment (
+    equipment_id serial primary key,
+
+    name varchar(100) not null,
+
+    purchase_date date,
+
+    condition_status char(1) default 'G'
+        check (condition_status in ('G','B')),
+
+    facility_id int not null,
+
+    foreign key (facility_id)
+        references Facilities(facility_id)
+);
+
+create table Instructors (
+    instructor_id serial primary key,
+
+    first_name varchar(50) not null,
+    last_name varchar(50) not null,
+
+    phone varchar(20),
+
+    email varchar(100) not null unique,
+
+    hire_date date default current_date
+        check (hire_date > date '2020-01-01'),
+
+    specialization varchar(100) not null
+);
+
+create table Classes (
+    class_id serial primary key,
+
+    class_name varchar(100) not null,
+
+    description text,
+
+    max_capacity int not null
+        check (max_capacity > 0)
+);
+
+create table Schedule (
+    schedule_id serial primary key,
+
+    class_id int not null,
+    instructor_id int not null,
+
+    start_time timestamp not null,
+    end_time timestamp not null,
+
+    facility_id int not null,
+
+    check (end_time > start_time),
+
+    foreign key (class_id)
+        references Classes(class_id),
+
+    foreign key (instructor_id)
+        references Instructors(instructor_id),
+
+    foreign key (facility_id)
+        references Facilities(facility_id)
+);
+
+create table Attendance (
+    attendance_id serial primary key,
+
+    member_id int not null,
+    schedule_id int not null,
+
+    check_in_time timestamp,
+
+    status char(1) default 'R'
+        check (status in ('R','P')),
+
+    unique (member_id, schedule_id),
+
+    foreign key (member_id)
+        references Members(member_id),
+
+    foreign key (schedule_id)
+        references Schedule(schedule_id)
+);
+
+create table Certifications (
+    certification_id serial primary key,
+
+    certification_name varchar(100) not null unique,
+
+    issuing_organization varchar(100) not null,
+
+    valid_years int not null
+        check (valid_years > 0)
+);
+
+create table Instructor_Certification (
+    certification_id int not null,
+    instructor_id int not null,
+
+    issue_date date default current_date
+        check (issue_date > date '2020-01-01'),
+
+    primary key (certification_id, instructor_id),
+
+    foreign key (certification_id)
+        references Certifications(certification_id),
+
+    foreign key (instructor_id)
+        references Instructors(instructor_id)
+);
+
+
+
+create role fitness_center_admin;
+create role fitness_center_readonly;
+
+grant usage on schema fitness_center
+to fitness_center_admin;
+
+grant usage on schema fitness_center
+to fitness_center_readonly;
+
+grant select, insert, update, delete
+on all tables in schema fitness_center
+to fitness_center_admin;
+
+grant select
+on all tables in schema fitness_center
+to fitness_center_readonly;
+
+create user db_admin_user
+with password 'Admin123!';
+
+create user db_reader_user
+with password 'Reader123!';
+
+grant fitness_center_admin to db_admin_user;
+grant fitness_center_readonly to db_reader_user;
+
+revoke update, delete
+on all tables in schema fitness_center
+from fitness_center_readonly;
+
+
+
+truncate table Attendance restart identity cascade;
+truncate table Instructor_Certification restart identity cascade;
+truncate table Payments restart identity cascade;
+truncate table Invoice restart identity cascade;
+truncate table Schedule restart identity cascade;
+truncate table Equipment restart identity cascade;
+truncate table Members restart identity cascade;
+truncate table Classes restart identity cascade;
+truncate table Instructors restart identity cascade;
+truncate table Certifications restart identity cascade;
+truncate table Facilities restart identity cascade;
+truncate table MembershipTypes restart identity cascade;
+
+
+
+insert into MembershipTypes
+(name, duration_month, price, access_level)
+values
+('Basic',1,15000,'Standard'),
+('Silver',3,40000,'Extended'),
+('Gold',6,70000,'Premium'),
+('VIP',12,120000,'VIP'),
+('Student',1,10000,'Standard');
+
+insert into Facilities
+(facility_name, capacity, location)
+values
+('Main Gym',100,'1st Floor'),
+('Yoga Hall',40,'2nd Floor'),
+('Swimming Pool',60,'Ground Floor'),
+('Cardio Zone',50,'3rd Floor'),
+('Crossfit Room',35,'Basement');
+
+insert into Classes
+(class_name, description, max_capacity)
+values
+('Yoga','Flexibility training',25),
+('Crossfit','High intensity training',20),
+('Pilates','Core workout',18),
+('Swimming','Swimming lessons',15),
+('Cardio Blast','Cardio exercises',30);
+
+insert into Certifications
+(certification_name, issuing_organization, valid_years)
+values
+('Fitness Trainer','ACE',3),
+('Yoga Coach','Yoga Alliance',5),
+('Crossfit Coach','Crossfit Org',4),
+('Swimming Coach','FINA',5),
+('Nutrition Specialist','NASM',2);
+
+insert into Instructors
+(first_name,last_name,phone,email,hire_date,specialization)
+values
+('Aruzhan','Kassym','+77010000001','aruzhan@fit.kz',current_date,'Yoga'),
+('Dias','Nurly','+77010000002','dias@fit.kz',current_date,'Crossfit'),
+('Dana','Serik','+77010000003','dana@fit.kz',current_date,'Pilates'),
+('Madi','Aliyev','+77010000004','madi@fit.kz',current_date,'Swimming'),
+('Amina','Bek','+77010000005','amina@fit.kz',current_date,'Cardio');
+
+insert into Members
+(first_name,last_name,date_of_birth,gender,phone,registration_date,membership_id,status)
+values
+(
+'Aliya','Nur','2001-04-12','F','+77071111111',current_date,
+(select membershipType_id from MembershipTypes where name='Gold'),'A'
+),
+(
+'Timur','Bekov','1999-08-22','M','+77072222222',current_date,
+(select membershipType_id from MembershipTypes where name='Silver'),'A'
+),
+(
+'Aruzhan','Sarsen','2002-11-10','F','+77073333333',current_date,
+(select membershipType_id from MembershipTypes where name='VIP'),'A'
+),
+(
+'Dias','Kaliyev','2000-02-01','M','+77074444444',current_date,
+(select membershipType_id from MembershipTypes where name='Basic'),'I'
+),
+(
+'Madina','Erkin','2003-06-15','F','+77075555555',current_date,
+(select membershipType_id from MembershipTypes where name='Student'),'A'
+);
+
+insert into Invoice
+(member_id,invoice_date,total_amount,status)
+values
+(
+(select member_id from Members where phone='+77071111111'),
+current_date,
+70000,
+'P'
+),
+(
+(select member_id from Members where phone='+77072222222'),
+current_date,
+40000,
+'U'
+),
+(
+(select member_id from Members where phone='+77073333333'),
+current_date,
+120000,
+'P'
+),
+(
+(select member_id from Members where phone='+77074444444'),
+current_date,
+15000,
+'U'
+),
+(
+(select member_id from Members where phone='+77075555555'),
+current_date,
+10000,
+'P'
+);
+
+
+
+set role db_admin_user;
+
+select current_user;
+
+select count(*) from Members;
+
+reset role;
+
+set role db_reader_user;
+
+select current_user;
+
+select count(*) from Members;
+
+reset role;
+
+
+
+select *
+from Members
+where first_name = 'Aliya';
+
+
+
+update Members
+set phone = '+77070000000'
+where first_name = 'Aliya';
+
+
+select *
+from MembershipTypes
+where name = 'Gold';
+
+
+
+update MembershipTypes
+set price = 75000
+where name = 'Gold';
+
+
+
+select m.first_name,
+       i.status
+from Invoice i
+join Members m
+on i.member_id = m.member_id
+where i.status = 'U';
+
+
+update Invoice i
+set status = 'P'
+from Members m
+where i.member_id = m.member_id
+and i.status = 'U';
+
+
+
+begin;
+
+delete from Members
+where status = 'I';
+
+select count(*)
+from Members;
+
+rollback;
+
+
+revoke fitness_center_readonly
+from db_admin_user;
+
+drop user if exists db_reader_user;
+drop role if exists fitness_center_readonly;
