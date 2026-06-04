@@ -1,26 +1,14 @@
-create schema if not exists business_center;
+create schema  business_center;
 set search_path to business_center;
 
-drop table if exists attendance cascade;
-drop table if exists employee_equipment cascade;
-drop table if exists equipment cascade;
-drop table if exists lease_contract cascade;
-drop table if exists tenant_company cascade;
-drop table if exists employee_position cascade;
-drop table if exists position cascade;
-drop table if exists office_room cascade;
-drop table if exists employee cascade;
-drop table if exists department cascade;
-
-
-create table if not exists department (
+create table  department (
     department_id serial primary key,
     department_name varchar(100) not null unique,
     floor_number int not null check (floor_number >= 0),
     office_phone varchar(25)
 );
 
-create table if not exists employee (
+create table employee (
     employee_id serial primary key,
     full_name varchar(150) not null,
     group_name varchar(20) not null default 'ПО-1-24',
@@ -35,7 +23,7 @@ create table if not exists employee (
     department_id int not null references department(department_id) on delete restrict
 );
 
-create table if not exists office_room (
+create table office_room (
     room_id serial primary key,
     room_number varchar(20) not null unique,
     floor_number int not null check (floor_number >= 0),
@@ -46,20 +34,20 @@ create table if not exists office_room (
     department_id int references department(department_id) on delete set null
 );
 
-create table if not exists position (
+create table position (
     position_id serial primary key,
     position_name varchar(100) not null unique,
     minimum_salary numeric(10,2) not null check (minimum_salary >= 0)
 );
 
-create table if not exists employee_position (
+create table employee_position (
     employee_id int not null references employee(employee_id) on delete cascade,
     position_id int not null references position(position_id) on delete restrict,
     start_date date not null check (start_date > date '2026-01-01'),
     primary key (employee_id, position_id)
 );
 
-create table if not exists tenant_company (
+create table  tenant_company (
     tenant_company_id serial primary key,
     company_name varchar(120) not null unique,
     bin varchar(12) not null unique,
@@ -69,7 +57,7 @@ create table if not exists tenant_company (
         check (business_type in ('IT', 'Education', 'Retail', 'Finance', 'Consulting'))
 );
 
-create table if not exists lease_contract (
+create table lease_contract (
     contract_id serial primary key,
     tenant_company_id int not null references tenant_company(tenant_company_id) on delete restrict,
     room_id int not null references office_room(room_id) on delete restrict,
@@ -85,7 +73,7 @@ create table if not exists lease_contract (
     check (end_date > start_date)
 );
 
-create table if not exists equipment (
+create table equipment (
     equipment_id serial primary key,
     equipment_name varchar(100) not null,
     serial_number varchar(50) not null unique,
@@ -95,14 +83,14 @@ create table if not exists equipment (
         check (status in ('available', 'assigned', 'repair'))
 );
 
-create table if not exists employee_equipment (
+create table employee_equipment (
     employee_id int not null references employee(employee_id) on delete cascade,
     equipment_id int not null references equipment(equipment_id) on delete restrict,
     given_date date not null check (given_date > date '2026-01-01'),
     primary key (employee_id, equipment_id)
 );
 
-create table if not exists attendance (
+create table attendance (
     attendance_id serial primary key,
     employee_id int not null references employee(employee_id) on delete cascade,
     work_date date not null check (work_date > date '2026-01-01'),
@@ -113,7 +101,7 @@ create table if not exists attendance (
 
 
 ALTER TABLE employee
-ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(120);
+ADD COLUMN  emergency_contact VARCHAR(120);
 
 alter table employee alter column phone_number type varchar(30);
 
@@ -441,7 +429,7 @@ values
 ('Samsung Monitor 24', 'BC-EQ-004', 125000, '2026-02-09', 'assigned'),
 ('Cisco Office Phone', 'BC-EQ-005', 65000, '2026-02-09', 'assigned');
 
-);
+
 TRUNCATE TABLE employee_equipment CASCADE;
 insert into employee_equipment (employee_id, equipment_id, given_date)
 values
@@ -539,8 +527,10 @@ BEGIN
         EXECUTE 'DROP OWNED BY business_center_readonly';
         EXECUTE 'DROP ROLE business_center_readonly';
     END IF;
-
-    IF EXISTS (
+END $$;
+    DO $$
+	BEGIN
+	IF EXISTS (
         SELECT 1 FROM pg_roles 
         WHERE rolname = 'business_center_writer'
     ) THEN
@@ -565,3 +555,4 @@ SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'business_center'
 ORDER BY table_name;
+
