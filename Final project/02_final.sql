@@ -1,14 +1,28 @@
-create schema  business_center;
-set search_path to business_center;
+DROP SCHEMA IF EXISTS business_center CASCADE;
 
-create table  department (
+CREATE SCHEMA business_center;
+SET search_path TO business_center;
+
+drop table if exists attendance cascade;
+drop table if exists employee_equipment cascade;
+drop table if exists equipment cascade;
+drop table if exists lease_contract cascade;
+drop table if exists tenant_company cascade;
+drop table if exists employee_position cascade;
+drop table if exists position cascade;
+drop table if exists office_room cascade;
+drop table if exists employee cascade;
+drop table if exists department cascade;
+
+
+create table if not exists department (
     department_id serial primary key,
     department_name varchar(100) not null unique,
     floor_number int not null check (floor_number >= 0),
     office_phone varchar(25)
 );
 
-create table employee (
+create table if not exists employee (
     employee_id serial primary key,
     full_name varchar(150) not null,
     group_name varchar(20) not null default 'ПО-1-24',
@@ -23,7 +37,7 @@ create table employee (
     department_id int not null references department(department_id) on delete restrict
 );
 
-create table office_room (
+create table if not exists office_room (
     room_id serial primary key,
     room_number varchar(20) not null unique,
     floor_number int not null check (floor_number >= 0),
@@ -34,20 +48,20 @@ create table office_room (
     department_id int references department(department_id) on delete set null
 );
 
-create table position (
+create table if not exists position (
     position_id serial primary key,
     position_name varchar(100) not null unique,
     minimum_salary numeric(10,2) not null check (minimum_salary >= 0)
 );
 
-create table employee_position (
+create table if not exists employee_position (
     employee_id int not null references employee(employee_id) on delete cascade,
     position_id int not null references position(position_id) on delete restrict,
     start_date date not null check (start_date > date '2026-01-01'),
     primary key (employee_id, position_id)
 );
 
-create table  tenant_company (
+create table if not exists tenant_company (
     tenant_company_id serial primary key,
     company_name varchar(120) not null unique,
     bin varchar(12) not null unique,
@@ -57,7 +71,7 @@ create table  tenant_company (
         check (business_type in ('IT', 'Education', 'Retail', 'Finance', 'Consulting'))
 );
 
-create table lease_contract (
+create table if not exists lease_contract (
     contract_id serial primary key,
     tenant_company_id int not null references tenant_company(tenant_company_id) on delete restrict,
     room_id int not null references office_room(room_id) on delete restrict,
@@ -73,7 +87,7 @@ create table lease_contract (
     check (end_date > start_date)
 );
 
-create table equipment (
+create table if not exists equipment (
     equipment_id serial primary key,
     equipment_name varchar(100) not null,
     serial_number varchar(50) not null unique,
@@ -83,14 +97,14 @@ create table equipment (
         check (status in ('available', 'assigned', 'repair'))
 );
 
-create table employee_equipment (
+ create table if not exists employee_equipment (
     employee_id int not null references employee(employee_id) on delete cascade,
     equipment_id int not null references equipment(equipment_id) on delete restrict,
     given_date date not null check (given_date > date '2026-01-01'),
     primary key (employee_id, equipment_id)
 );
 
-create table attendance (
+create table if not exists attendance (
     attendance_id serial primary key,
     employee_id int not null references employee(employee_id) on delete cascade,
     work_date date not null check (work_date > date '2026-01-01'),
@@ -100,8 +114,8 @@ create table attendance (
 );
 
 
-ALTER TABLE employee
-ADD COLUMN  emergency_contact VARCHAR(120);
+alter table employee add column emergency_contact varchar(120);
+
 
 alter table employee alter column phone_number type varchar(30);
 
@@ -337,8 +351,7 @@ values
 (select department_id from department where department_name='Tenant Relations'),
 '+77019990023');
 
-TRUNCATE TABLE office_room CASCADE;
-INSERT INTO office_room
+insert into office_room
 (room_number, floor_number, room_area, monthly_price, status, department_id)
 values
 ('A-101', 1, 28.50, 180000, 'rented',
@@ -356,7 +369,6 @@ values
  ('C-301', 3, 60.00, 450000, 'available',
  (select department_id from department where department_name = 'Technical Service'));
 
-TRUNCATE TABLE tenant_company CASCADE;
 insert into tenant_company
 (company_name, bin, contact_person, contact_phone, business_type, registration_address)
 values
@@ -365,7 +377,7 @@ values
 ('West Retail Group LLP', '260201000003', 'Marat Sadykov', '+77021110003', 'Retail', 'Satbayev 14, Atyrau'),
 ('Finance Pro Consulting LLP', '260201000004', 'Dana Akhmetova', '+77021110004', 'Finance', 'Satbayev 16, Atyrau'),
 ('Business Expert Group LLP', '260201000005', 'Timur Iskakov', '+77021110005', 'Consulting', 'Satbayev 18, Atyrau');
-TRUNCATE TABLE lease_contract CASCADE;
+
 insert into lease_contract
 (tenant_company_id, room_id, manager_employee_id, start_date, end_date, monthly_rent, deposit, status)
 values
@@ -399,7 +411,7 @@ values
  (select employee_id from employee where email = 'maksim.li@bc.kz'),
  '2026-02-09', '2027-02-09', 450000, 450000, 'cancelled'
 );
-TRUNCATE TABLE employee_position CASCADE;
+
 insert into employee_position (employee_id, position_id, start_date)
 select e.employee_id, p.position_id, date '2026-02-09'
 from employee e
@@ -419,7 +431,6 @@ join position p on
     (e.department_id = (select department_id from department where department_name = 'Technical Service')
      and p.position_name = 'Technical Support Specialist');
 
-TRUNCATE TABLE equipment CASCADE;
 insert into equipment
 (equipment_name, serial_number, purchase_price, purchase_date, status)
 values
@@ -429,8 +440,6 @@ values
 ('Samsung Monitor 24', 'BC-EQ-004', 125000, '2026-02-09', 'assigned'),
 ('Cisco Office Phone', 'BC-EQ-005', 65000, '2026-02-09', 'assigned');
 
-
-TRUNCATE TABLE employee_equipment CASCADE;
 insert into employee_equipment (employee_id, equipment_id, given_date)
 values
 (
@@ -458,7 +467,7 @@ values
  (select equipment_id from equipment where serial_number = 'BC-EQ-005'),
  '2026-02-09'
 );
-TRUNCATE TABLE attendance CASCADE;
+
 insert into attendance (employee_id, work_date, attendance_status, hours_worked)
 values
 ((select employee_id from employee where email = 'aiken.amanbay@bc.kz'), '2026-02-09', 'present', 8),
@@ -511,36 +520,21 @@ returning contract_id, tenant_company_id, room_id, status;
 rollback;
 
 DO $$
-begin
-    if exists (select 1 from pg_roles where rolname = 'business_center_readonly') then
-        execute 'drop owned by business_center_readonly';
-        execute 'drop role business_center_readonly';
-    end if;
-END $$;
-
-DO $$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM pg_roles 
+    IF NOT EXISTS (
+        SELECT FROM pg_roles 
         WHERE rolname = 'business_center_readonly'
     ) THEN
-        EXECUTE 'DROP OWNED BY business_center_readonly';
-        EXECUTE 'DROP ROLE business_center_readonly';
+        CREATE ROLE business_center_readonly;
     END IF;
-END $$;
-    DO $$
-	BEGIN
-	IF EXISTS (
-        SELECT 1 FROM pg_roles 
+
+    IF NOT EXISTS (
+        SELECT FROM pg_roles 
         WHERE rolname = 'business_center_writer'
     ) THEN
-        EXECUTE 'DROP OWNED BY business_center_writer';
-        EXECUTE 'DROP ROLE business_center_writer';
+        CREATE ROLE business_center_writer;
     END IF;
 END $$;
-
-CREATE ROLE business_center_readonly;
-CREATE ROLE business_center_writer;
 
 grant usage on schema business_center to business_center_readonly;
 grant usage on schema business_center to business_center_writer;
@@ -549,10 +543,9 @@ grant select on all tables in schema business_center to business_center_readonly
 
 grant insert, update on employee to business_center_writer;
 
-revoke update on employee from business_center_writer;	
+revoke update on employee from business_center_writer;
+
 
 SELECT table_name
 FROM information_schema.tables
-WHERE table_schema = 'business_center'
-ORDER BY table_name;
-
+WHERE table_schema = 'business_center';
